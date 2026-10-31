@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>exocortex · insights</title>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; color: #222; }
+nav a { margin-right: 1rem; }
+.graph { height: 320px; border: 1px solid #ddd; border-radius: 6px; margin: .5rem 0; }
+.legend span { margin-right: 1rem; }
+h2 { margin-top: 2.5rem; border-bottom: 1px solid #eee; }
+.scope { font-weight: 600; }
+li { margin: .3rem 0; }
+.amd { font-size: .8em; border: 1px solid #ccc; border-radius: 4px; padding: 0 .3em; cursor: help; }
+.insight { background: #f7fafc; border-left: 3px solid #2c5282; padding: .2rem 1rem; margin: 1rem 0; }
+.insight table { border-collapse: collapse; } .insight td, .insight th { border: 1px solid #ddd; padding: .2rem .5rem; }
+footer { margin: 3rem 0 1rem; color: #888; font-size: .9em; }
+</style>
+</head>
+<body>
+<h1>exocortex</h1>
+<nav><a href="index.html">方向与工作</a><a href="insights.html">Insights</a></nav>
+<p>以下是 insight agent 对各方向的判断：下一个值得做的方向与未解决的问题。它们是判断，不是证据；证据见<a href="index.html">方向与工作</a>里对应的 lens。</p>
+<h2 id="agentic-robotics">agentic-robotics</h2>
+<p class="scope">冻结的前沿模型当 agent、在模型外写代码技能 / 程序 / harness 来驱动机器人操作的工作，以及评测这类 agent 的 benchmark。</p>
+<div class="insight">
+<h3>Directions</h3>
+<h4>Test whether state estimation, not more reasoning, closes the privileged–standard gap</h4>
+<ul><li><strong>Why</strong>: The top agent in <a href="https://www.embodied-first-exam.ai/">Embodied First Exam</a> solves 75.5% with privileged simulator state but 33.8% through the robot API. In <a href="https://arxiv.org/abs/2610.10388">RoboQuest</a>, 43–46% of failures are missing evidence, while the execution skills pass 72–81% once the hidden information is given. <a href="https://research.nvidia.com/labs/srl/projects/astranomy/">Astranomy</a> lifts Direct control from 19.3% to 72.7% by writing gripper and camera geometry into the prompt, and <a href="https://github.com/HexaFuture/HexaShell">HexaShell</a> builds its own dual-view triangulation tool. All self-reported except HexaShell's official score.</li>
+<li><strong>Gap</strong>: No work isolates a perception layer: nobody gives the same agent estimated object poses as a tool and measures how much of the privileged–standard gap closes.</li>
+<li><strong>First experiment</strong>: On the Embodied First Exam standard split, add a pose-estimation and multi-view triangulation tool to the agent's API; report, per suite, the fraction of the 75.5% → 33.8% gap recovered.</li>
+</ul><h4>Treat the agent loop as a data engine for a cheap policy</h4>
+<ul><li><strong>Why</strong>: Agent control is expensive: <a href="https://research.nvidia.com/labs/srl/projects/astranomy/">Astranomy</a> spends 30.9M tokens ($36.40) per successful Agentic episode against $1.96 for Direct. Works that amortize the agent report large gains: <a href="https://github.com/robot-agent-exploration/rax">RAX</a> compiles exploration into programs that run 103–241× faster; <a href="https://arxiv.org/abs/2609.29166">HarnessPAI</a> fine-tunes π0.5 on its collected trajectories, 34.9% → 73.7% on LIBERO-PRO; <a href="https://github.com/OpenSenseNova/SenseNova-RoboRSI">SenseNova-RoboRSI</a> trains a 27B model on verified traces (RoboCasa365 26.0% → 46.5%, output tokens −73.3%); <a href="https://feng.ifeng.com/c/8xIuPhHNWQl">WorldScape R²SI</a> trains its action model on execution records. All self-reported.</li>
+<li><strong>Gap</strong>: No work compares the three amortization targets (compiled program, fine-tuned VLA, distilled VLM) under one trace budget on held-out layouts, with cost per success reported.</li>
+<li><strong>First experiment</strong>: From one agent run's verified traces, build all three and evaluate them on the same held-out RoboDojo layouts; report success rate and dollars per success.</li>
+</ul><h4>Hand contact-rich steps to a learned policy</h4>
+<ul><li><strong>Why</strong>: Agents are weakest where contact precision matters: <a href="https://github.com/HexaFuture/HexaShell">HexaShell</a> scores 32.0% on RoboDojo Precision against 81.0% on Memory (official), and <a href="https://arxiv.org/abs/2610.18867">EmbodiedEvo</a> reports fine insertion and liquid handling as still hard. Hybrids already call VLAs as skills (<a href="https://arxiv.org/abs/2609.29166">HarnessPAI</a>, <a href="https://mmlab.hk/research/PhysicalRSI">PhysicalRSI 1.0</a>, <a href="https://github.com/OpenSenseNova/SenseNova-RoboRSI">SenseNova-RoboRSI</a>) or let the agent supervise a policy, but <a href="https://robodoctor-rsi.github.io/">RoboDoctor</a> picks the controller per task from a fixed warmup threshold, and <a href="https://research.nvidia.com/labs/srl/projects/astranomy/">Astranomy</a>'s Orchestrated mode (66.5%) trails pure Agentic (74.8%).</li>
+<li><strong>Gap</strong>: No work reports per-capability results showing where a handoff to a learned policy helps.</li>
+<li><strong>First experiment</strong>: On RoboDojo, compare agent-only against agent-plus-VLA-skill per capability dimension (Precision, Long-horizon, Memory), same agent and seeds.</li>
+</ul><h3>Open problems</h3>
+<ul><li><strong>Held-out discipline in self-improving loops</strong>: <a href="https://arxiv.org/abs/2609.29166">HarnessPAI</a>'s 50-seed LIBERO-PRO score includes the 15 seeds its programs evolved on; <a href="https://mmlab.hk/research/PhysicalRSI">PhysicalRSI 1.0</a> does not say whether its select-on-eval set is disjoint from the leaderboard; <a href="https://feng.ifeng.com/c/8xIuPhHNWQl">WorldScape R²SI</a> revises skills on the same layout; <a href="https://robodoctor-rsi.github.io/">RoboDoctor</a> keeps the best of several runs. Of the 17 works, only <a href="https://github.com/HexaFuture/HexaShell">HexaShell</a> was re-evaluated by the benchmark owner on hidden seeds.</li>
+<li><strong>Knowing whether the task is done</strong>: <a href="https://arxiv.org/abs/2610.10388">RoboQuest</a> agents decide when to submit, and 23–31% of their failures are wrong decisions; <a href="https://research.nvidia.com/labs/gear/aspire/">ASPIRE</a> names success detection and safe reset as what still blocks autonomous real-robot learning; <a href="https://www.embodied-first-exam.ai/">Embodied First Exam</a> probes its verifiers with an agent trying to pass without doing the task. One capability blocks both evaluation and real-world improvement loops.</li>
+<li><strong>Real-robot evidence is thin</strong>: <a href="https://arxiv.org/abs/2610.10498">EmbodiedRSI</a> evolves in simulation and deploys zero-shot on five SO-101 tasks; <a href="https://github.com/robot-agent-exploration/rax">RAX</a> relies on operator resets; <a href="https://github.com/OpenSenseNova/SenseNova-RoboRSI">SenseNova-RoboRSI</a> shows real-robot demos without success rates; <a href="https://robodojo-benchmark.com/">RoboDojo</a>'s real-robot leaderboard has one visible entry.</li></ul>
+</div>
+<h2 id="robotics-simulation">robotics-simulation</h2>
+<p class="scope">以机器人仿真本身为研究对象的工作：物理引擎与仿真平台、从真实观测重建或校准仿真场景与物理参数（Real2Sim）、在仿真里批量生成合成数据的流水线，以及检验仿真评测或仿真数据能否代替真机的工作。只在仿真里训练或评测某个策略、只发布仿真任务集而不检验与真机一致性的不算；学到的视频世界模型归 video-world-models。</p>
+<div class="insight">
+<h3>Landscape</h3>
+<p>Simulation is put to three uses, and two lines of work build what those uses run on. Every number below is self-reported, and no two works in the lens share a benchmark.</p>
+<ul><li><strong>Data engine</strong>: generate demonstrations to co-train or fine-tune a policy. <a href="https://github.com/robosnap/robosnap">RoboSnap</a> co-trains π0.5 on real plus synthetic data (+9.0 points on the real robot); <a href="https://github.com/AgibotTech/genie_sim">Genie Sim</a>'s sim-only π0.5 reaches 0.83 on the real robot against 0.75 for real data; <a href="https://arxiv.org/abs/2610.34745">SceneAgent</a> reaches 88% real with staged sim-only fine-tuning; <a href="https://github.com/nvidia-isaac/video_to_data/">Video to Data (V2D)</a> turns human video into RL experts whose rollouts fine-tune GR00T N1.7.</li>
+<li><strong>Evaluator</strong>: stand in for real-robot evaluation. <a href="https://github.com/X-Square-Robot/x2real">X2Real</a> (sim–real progress correlation 0.84, success 0.74), <a href="https://github.com/robosnap/robosnap">RoboSnap</a> (Pearson r = 0.887), <a href="https://github.com/AgibotTech/genie_sim">Genie Sim</a> (sim–real difference under 10%). Learned simulators compete for this role: <a href="https://github.com/Robert-gyj/Ctrl-World">Ctrl-World</a> rolls policies out in imagination, and <a href="https://github.com/WorldOracle-benchmark/WorldOracle/tree/main">WorldOracle</a> shows video world models degrading as episodes lengthen.</li>
+<li><strong>RL environment for counterfactual rollouts</strong>: massively parallel physics RL with sparse or binary rewards (<a href="https://sgs-rl.github.io/">SGS</a> at 1M environments, <a href="https://alpha-nist.github.io/">AlphaNIST</a>, <a href="https://arxiv.org/abs/2610.37652">DexSafe</a>, CHORD in <a href="https://github.com/nvidia-isaac/video_to_data/">Video to Data (V2D)</a>), or a learned model in place of the simulator (<a href="https://supermimic.github.io/">SuperMimic</a> backpropagates through a world model, <a href="https://arxiv.org/abs/2610.30814">DRILL</a> trains the world model on imagined policy return).</li>
+<li><strong>Building the sim (Real2Sim)</strong>: from one image (<a href="https://github.com/robosnap/robosnap">RoboSnap</a>), human video (<a href="https://github.com/nvidia-isaac/video_to_data/">Video to Data (V2D)</a>) or 3D / 4D captures (<a href="https://arxiv.org/abs/2610.34745">SceneAgent</a>). The building is moving to coding agents that inspect and repair their own output (<a href="https://arxiv.org/abs/2610.34745">SceneAgent</a>, <a href="https://robosimstudio.github.io/">RoboSimStudio</a>, LLM-generated scenes in <a href="https://github.com/AgibotTech/genie_sim">Genie Sim</a>); on <a href="https://4dcodebench.com/">4DCodeBench</a> most agents still write motion as hand-tuned curves rather than simulating it.</li>
+<li><strong>Physics for contact and soft bodies</strong>: <a href="https://github.com/facebookresearch/project_superdex">Project SuperDex</a>'s contact-first engine and <a href="https://robosimstudio.github.io/">RoboSimStudio</a>'s explicitly tunable solvers; neither reports fidelity numbers.</li>
+</ul><h3>Directions</h3>
+<h4>Make sim–real disagreement the verifier of agent-built sims</h4>
+<ul><li><strong>Why</strong>: Agentic builders check themselves against geometry or their own visual review. <a href="https://arxiv.org/abs/2610.34745">SceneAgent</a> reports F1 at 1 cm (9.51% → 60.75% with its skills) and leaves physical parameters unvalidated; <a href="https://robosimstudio.github.io/">RoboSimStudio</a> judges consistency qualitatively, yet its one real-robot failure (a holder that moved in reality but was fixed in sim) was enough for the agent to correct the constraint. Sims used as evaluators are calibrated separately and after the fact (<a href="https://github.com/X-Square-Robot/x2real">X2Real</a>, <a href="https://github.com/robosnap/robosnap">RoboSnap</a>).</li>
+<li><strong>Gap</strong>: No work in the library feeds per-episode sim–real outcome disagreement back to the building agent and reports agreement after each repair round.</li>
+<li><strong>First experiment</strong>: On one RoboSnap-style scene, run the same policy for 50 episodes on the real robot and in the sim; give the coding agent the paired videos and outcomes as its verifier; report the success-rate gap and per-episode agreement after each repair round, against a geometry-only verifier.</li>
+</ul><h4>Find out why more simulated demonstrations stop helping on the real robot</h4>
+<ul><li><strong>Why</strong>: In <a href="https://arxiv.org/abs/2610.34745">SceneAgent</a>, a VLA fine-tuned on sim-only pick-and-place data peaks at 48% real success with 40 episodes and falls to 12% at 4k, while sim success keeps rising; staged training on three datasets then reaches 88%. <a href="https://github.com/robosnap/robosnap">RoboSnap</a> reports its gain at one mixing ratio and <a href="https://github.com/AgibotTech/genie_sim">Genie Sim</a> at 500–1,500 sim episodes; neither gives a scaling curve.</li>
+<li><strong>Gap</strong>: At a fixed episode count, no work separates the candidate causes: one scripted expert's homogeneity, the rendering gap, or the physics gap.</li>
+<li><strong>First experiment</strong>: At 4k episodes on SceneAgent's eggplant task, train on (a) one scripted expert, (b) varied and noise-injected experts, (c) the same trajectories re-rendered over a real-captured background, (d) randomized physics; report real success for each.</li>
+</ul><h4>Pit a reconstructed physics twin against a learned world model as the RL environment for the same scene</h4>
+<ul><li><strong>Why</strong>: Physics-sim RL transfers on contact tasks when evaluated at scale (<a href="https://arxiv.org/abs/2610.37652">DexSafe</a>: 95.2% on 4,800 unseen real targets). Learned models train fast (<a href="https://supermimic.github.io/">SuperMimic</a> beats SONIC's return in 3 H100-hours) and can be tuned for policy return (<a href="https://arxiv.org/abs/2610.30814">DRILL</a>: +13.1 points over WMPO in simulation), but <a href="https://github.com/WorldOracle-benchmark/WorldOracle/tree/main">WorldOracle</a> shows Cosmos 3 falling from 53.99 to 26.60 as episodes lengthen. Real2Sim now builds a physics twin from one image in about 20 minutes (<a href="https://github.com/robosnap/robosnap">RoboSnap</a>).</li>
+<li><strong>Gap</strong>: No work in the library RL-fine-tunes the same policy in a physics twin and in a world model of the same scene and compares real-robot success.</li>
+<li><strong>First experiment</strong>: From one capture, build a RoboSnap twin and a Ctrl-World-style action-conditioned model; RL-fine-tune π0.5 with the same binary success reward in each; report real success, wall-clock time and GPU hours.</li>
+</ul><h3>Open problems</h3>
+<ul><li><strong>Sim evaluation is calibrated on one policy per platform</strong>: <a href="https://github.com/X-Square-Robot/x2real">X2Real</a> uses Wall-OSS-0.5, <a href="https://github.com/robosnap/robosnap">RoboSnap</a> π0.5, and <a href="https://github.com/AgibotTech/genie_sim">Genie Sim</a> π0.5 on 8 tasks; <a href="https://github.com/X-Square-Robot/x2real">X2Real</a> also reports a clear real2sim gap on precision tasks. Whether these sims rank different policies the way the real robot does is not reported for them.</li>
+<li><strong>Physical parameters stay unverified</strong>: <a href="https://arxiv.org/abs/2610.34745">SceneAgent</a> estimates them from semantics and VLM priors and calls the inverse problem ill-posed; <a href="https://robosimstudio.github.io/">RoboSimStudio</a> compares with video qualitatively; <a href="https://github.com/facebookresearch/project_superdex">Project SuperDex</a> gives no numbers.</li>
+<li><strong>No shared yardstick for the real value of sim data</strong>: <a href="https://github.com/robosnap/robosnap">RoboSnap</a> (10 tasks), <a href="https://github.com/AgibotTech/genie_sim">Genie Sim</a> (8 tasks) and <a href="https://arxiv.org/abs/2610.34745">SceneAgent</a> (one pick-and-place task) each choose their own tasks, ratios and robots, so their pipelines cannot be compared.</li></ul>
+</div>
+<footer>更新于 2026-10-31。</footer>
+<script>
+const graphs = {};
+for (const [id, data] of Object.entries(graphs)) {
+  const network = new vis.Network(document.getElementById("g-" + id),
+    { nodes: new vis.DataSet(data.nodes), edges: new vis.DataSet(data.edges) },
+    { nodes: { shape: "dot", size: 10, color: "#90cdf4", font: { size: 15 } },
+      physics: { solver: "forceAtlas2Based", stabilization: { iterations: 200 } },
+      interaction: { hover: true } });
+  network.on("click", (e) => {
+    const node = data.nodes.find((n) => n.id === e.nodes[0]);
+    if (node) window.open(node.url, "_blank");
+  });
+}
+</script>
+</body>
+</html>
